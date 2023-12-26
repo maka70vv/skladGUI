@@ -176,8 +176,17 @@ class WarehouseApp:
                                                                                         tablename))
 
         for product in productsInStock_data:
+            self.cursor.execute("SELECT address FROM sklad.shops WHERE idShop = %s", (product[7],))
+            shop_address = self.cursor.fetchone()[0]
+
+        for product in productsInStock_data:
+            self.cursor.execute("SELECT categoryName FROM sklad.category WHERE idCategory = %s", (product[6],))
+            category_name = self.cursor.fetchone()[0]
+
+
+        for product in productsInStock_data:
             productsInStock_tree.insert("", "end", values=(product[0], product[1], product[2], product[3], product[4],
-                                                           product[5], product[6], product[7]))
+                                                           product[5], category_name, shop_address))
 
     def load_sotrudniki_data(self):
         self.cursor.execute("SELECT * FROM sklad.sotrudniki")
@@ -494,7 +503,9 @@ class WarehouseApp:
         sale_products_window.title("Выберите продукт для продажи")
 
         sale_products_tree = ttk.Treeview(sale_products_window, columns=("", "ID",
-                                                                         "product name", "price", "description", "quantity", "edinicaIzmerenia", "categoryName", "shopAddress"))
+                                                                         "product name", "price", "description",
+                                                                         "quantity", "edinicaIzmerenia", "categoryName",
+                                                                         "shopAddress"))
         sale_products_tree.heading("#0", text="")
         sale_products_tree.heading("#1", text="ID")
         sale_products_tree.heading("#2", text="Название продукта")
@@ -512,11 +523,19 @@ class WarehouseApp:
 
         productsInStock_data = self.cursor.fetchall()
         sale_products_tree.bind("<Button-3>",
-                                lambda event, treeview=sale_products_tree: self.show_sale_context_menu(event, treeview, tablename="productsinstock"))
+                                lambda event, treeview=sale_products_tree: self.show_sale_context_menu(event, treeview,
+                                                                                                       tablename="productsinstock"))
 
         for product in productsInStock_data:
+            self.cursor.execute("SELECT address FROM sklad.shops WHERE idShop = %s", (product[7],))
+            shop_address = self.cursor.fetchone()[0]
+
+        for product in productsInStock_data:
+            self.cursor.execute("SELECT categoryName FROM sklad.category WHERE idCategory = %s", (product[6],))
+            category_name = self.cursor.fetchone()[0]
+
             sale_products_tree.insert("", "end", values=(product[0], product[1], product[2], product[3], product[4],
-                                                           product[5], product[6], product[7]))
+                                                         product[5], category_name, shop_address))
 
     def create_sale_context_menu(self):
         sale_context_menu = tk.Menu(self.root, tearoff=0)
