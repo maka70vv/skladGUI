@@ -469,7 +469,7 @@ class WarehouseApp:
         quantity_entry.grid(row=0, column=1, padx=10, pady=5)
 
         sell_button = ttk.Button(sale_window, text="Продать",
-                                 command=lambda: self.sell_item(product_id, int(quantity_entry.get())))
+                                 command=lambda: self.sell_item(product_id, int(quantity_entry.get()), tablename="productsinstock"))
         sell_button.grid(row=1, column=0, columnspan=2, pady=10)
 
     def show_sale_context_menu(self, event, treeview, tablename):
@@ -479,15 +479,15 @@ class WarehouseApp:
             self.selected_item = item_id
             self.tablename = tablename
 
-    def sell_item(self, product_id, quantity_to_sell):
+    def sell_item(self, product_id, quantity_to_sell, tablename):
         print(f"Продано {quantity_to_sell} единиц продукта с ID {product_id}")
 
-        self.cursor.execute("UPDATE sklad.productsinstock SET quantity = quantity - %s WHERE idProduct = %s",
-                            (quantity_to_sell, product_id))
-        self.conn.commit()
+        if tablename == "productsinstock":
+            self.cursor.execute("UPDATE sklad.productsinstock SET quantity = quantity - %s WHERE idProduct = %s",
+                                (quantity_to_sell, product_id))
+            self.conn.commit()
 
-        # Обновляем данные в соответствующем представлении
-        self.load_productsInStock()
+            self.load_productsInStock()
 
     def sale_productsInStock(self):
         sale_products_window = tk.Toplevel(self.root)
@@ -508,7 +508,7 @@ class WarehouseApp:
 
         self.sale_products_tree = sale_products_tree
 
-        self.cursor.execute("SELECT * FROM sklad.productsinstock")
+        self.cursor.execute("SELECT * FROM sklad.productsinstock WHERE quantity > 0")
 
         productsInStock_data = self.cursor.fetchall()
         sale_products_tree.bind("<Button-3>",
