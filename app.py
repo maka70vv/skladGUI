@@ -22,6 +22,7 @@ class WarehouseApp:
         self.context_menu.add_command(label="Удалить", command=self.delete_item)
         self.sale_context_menu = self.create_sale_context_menu()
         self.sklad_sale_context_menu = self.create_sklad_sale_context_menu()
+        self.order_is_done_context_menu = self.create_order_is_done_context_menu()
 
         self.create_menu()
 
@@ -35,8 +36,6 @@ class WarehouseApp:
         create_menu.add_command(label="Добавить категорию товаров", command=self.create_category)
         create_menu.add_command(label="Добавить продукты в наличии", command=self.create_productsInStock)
         create_menu.add_command(label="Добавить продукты на складе", command=self.create_productsOnSklad)
-        # create_menu.add_command(label="Добавить заказ на склад", command=self.create_orderToSklad)
-        # create_menu.add_command(label="Добавить заказ со склада", command=self.create_orderFromSklad)
 
         view_menu = tk.Menu(menu_bar, tearoff=0)
         view_menu.add_command(label="Список сотрудников", command=self.view_employees)
@@ -50,9 +49,16 @@ class WarehouseApp:
         sales_menu.add_command(label="Продать продукт в наличии", command=self.sale_productsInStock)
         sales_menu.add_command(label="Продать продукт со склада", command=self.sale_productsOnSklad)
 
+        order_menu = tk.Menu(menu_bar, tearoff=0)
+        order_menu.add_command(label="Добавить заказ на склад", command=self.create_orderToSklad)
+        order_menu.add_command(label="Список заказов на склад", command=self.view_orderToSklad)
+        order_menu.add_command(label="Добавить заказ со склада", command=self.create_orderFromSklad)
+        order_menu.add_command(label="Список заказов со склада", command=self.view_orderFromSklad)
+
         menu_bar.add_cascade(label="Создать", menu=create_menu)
         menu_bar.add_cascade(label="Просмотр", menu=view_menu)
         menu_bar.add_cascade(label="Продажи", menu=sales_menu)
+        menu_bar.add_cascade(label="Заказы", menu=order_menu)
         menu_bar.add_command(label="Выход", command=self.root.destroy)
 
         self.root.config(menu=menu_bar)
@@ -230,6 +236,79 @@ class WarehouseApp:
             productsOnSklad_tree.insert("", "end", values=(product[0], product[1], product[2], product[3], product[4],
                                                            product[5], category_name, sklad_address))
 
+    def view_orderToSklad(self):
+        category_window = tk.Toplevel(self.root)
+        category_window.title("Список заказов на склад")
+
+        orderToSklad_tree = ttk.Treeview(category_window,
+                                         columns=("", "ID", "skladAddress", "product", "quantity", "isDone"))
+        orderToSklad_tree.heading("#0", text="")
+        orderToSklad_tree.heading("#1", text="ID")
+        orderToSklad_tree.heading("#2", text="Адрес склада")
+        orderToSklad_tree.heading("#3", text="Название продукта")
+        orderToSklad_tree.heading("#4", text="Количество")
+        orderToSklad_tree.heading("#5", text="Выполнено")
+        orderToSklad_tree.pack(expand=True, fill=tk.BOTH)
+
+        self.orderToSklad_tree = orderToSklad_tree
+
+        self.cursor.execute("SELECT * FROM sklad.ordertosklad")
+
+        ordersToSklad_data = self.cursor.fetchall()
+
+
+        orderToSklad_tree.bind("<Button-3>",
+                                lambda event, treeview=orderToSklad_tree: self.show_order_is_done_context_menu(event, treeview,
+                                                                                                       tablename="ordertosklad"))
+
+        for product in ordersToSklad_data:
+            self.cursor.execute("SELECT address FROM sklad.sklad WHERE idSklad = %s", (product[1],))
+            sklad_address = self.cursor.fetchone()[0]
+
+            self.cursor.execute("SELECT productName FROM sklad.productsonsklad WHERE idProduct = %s", (product[2],))
+            product_name = self.cursor.fetchone()[0]
+
+            orderToSklad_tree.insert("", "end", values=(
+            product[0], sklad_address, product_name, product[3], product[4]))
+
+    def view_orderFromSklad(self):
+        category_window = tk.Toplevel(self.root)
+        category_window.title("Список заказов со склада")
+
+        orderFromSklad_tree = ttk.Treeview(category_window,
+                                         columns=("", "ID", "skladAddress", "product", "quantity", "isDone"))
+        orderFromSklad_tree.heading("#0", text="")
+        orderFromSklad_tree.heading("#1", text="ID")
+        orderFromSklad_tree.heading("#2", text="Адрес склада")
+        orderFromSklad_tree.heading("#3", text="Адрес магазина")
+        orderFromSklad_tree.heading("#4", text="Название продукта")
+        orderFromSklad_tree.heading("#5", text="Количество")
+        orderFromSklad_tree.heading("#6", text="Выполнено")
+        orderFromSklad_tree.pack(expand=True, fill=tk.BOTH)
+
+        self.orderFromSklad_tree = orderFromSklad_tree
+
+        self.cursor.execute("SELECT * FROM sklad.orderfromsklad")
+
+        ordersFromSklad_data = self.cursor.fetchall()
+
+
+        orderFromSklad_tree.bind("<Button-3>",
+                                lambda event, treeview=orderFromSklad_tree: self.show_order_is_done_context_menu(event, treeview,
+                                                                                                       tablename="orderfromsklad"))
+
+        for product in ordersFromSklad_data:
+            self.cursor.execute("SELECT address FROM sklad.sklad WHERE idSklad = %s", (product[1],))
+            sklad_address = self.cursor.fetchone()[0]
+            self.cursor.execute("SELECT address FROM sklad.shops WHERE idShop = %s", (product[3],))
+            shop_address = self.cursor.fetchone()[0]
+
+            self.cursor.execute("SELECT productName FROM sklad.productsonsklad WHERE idProduct = %s", (product[4],))
+            product_name = self.cursor.fetchone()[0]
+
+            orderFromSklad_tree.insert("", "end", values=(
+            product[0], sklad_address, shop_address, product_name, product[4], product[5]))
+
     def load_sotrudniki_data(self):
         self.cursor.execute("SELECT * FROM sklad.sotrudniki")
         sotrudniki_data = self.cursor.fetchall()
@@ -289,6 +368,26 @@ class WarehouseApp:
 
         for productsOnSklad in productsOnSklad_data:
             self.productsOnSklad_tree.insert("", "end", values=productsOnSklad)
+
+    def load_ordersToSklad(self):
+        self.cursor.execute("SELECT * FROM sklad.ordertosklad")
+        ordersToSklad_data = self.cursor.fetchall()
+
+        for item in self.orderToSklad_tree.get_children():
+            self.orderToSklad_tree.delete(item)
+
+        for ordersToSklad in ordersToSklad_data:
+            self.orderToSklad_tree.insert("", "end", values=ordersToSklad)
+
+    def load_ordersFromSklad(self):
+        self.cursor.execute("SELECT * FROM sklad.orderfromsklad")
+        ordersFromSklad_data = self.cursor.fetchall()
+
+        for item in self.ordersFromSklad_tree.get_children():
+            self.ordersFromSklad_tree.delete(item)
+
+        for ordersFromSklad in ordersFromSklad_data:
+            self.orderToSklad_tree.insert("", "end", values=ordersFromSklad)
 
     def create_sotrudnik(self):
         create_window = tk.Toplevel(self.root)
@@ -553,6 +652,93 @@ class WarehouseApp:
         submit_button = ttk.Button(create_window, text="Создать", command=insert_data)
         submit_button.grid(row=1, column=0, columnspan=2, pady=10)
 
+    def create_orderToSklad(self):
+        create_window = tk.Toplevel(self.root)
+        create_window.title("Добавить заказ на склад")
+
+        sklad_label = ttk.Label(create_window, text="id склада:")
+        sklad_entry = ttk.Entry(create_window)
+
+        product_label = ttk.Label(create_window, text="id продукта:")
+        product_entry = ttk.Entry(create_window)
+
+        quantity_label = ttk.Label(create_window, text="Количество:")
+        quantity_entry = ttk.Entry(create_window)
+
+        sklad_label.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        sklad_entry.grid(row=0, column=1, padx=10, pady=5)
+
+        product_label.grid(row=1, column=0, padx=10, pady=5, sticky=tk.W)
+        product_entry.grid(row=1, column=1, padx=10, pady=5)
+
+        quantity_label.grid(row=2, column=0, padx=10, pady=5, sticky=tk.W)
+        quantity_entry.grid(row=2, column=1, padx=10, pady=5)
+
+        def insert_data():
+            sklad = sklad_entry.get()
+            product = product_entry.get()
+            quantity = quantity_entry.get()
+
+            self.cursor.execute(
+                "INSERT INTO sklad.ordertosklad (idSklad, idProduct, quantity, isDone) VALUES (%s, %s, %s, %s)",
+                (sklad, product, quantity, False)
+            )
+            self.conn.commit()
+
+            create_window.destroy()
+
+            self.load_sklad_data()
+
+        submit_button = ttk.Button(create_window, text="Добавить", command=insert_data)
+        submit_button.grid(row=3, column=0, columnspan=2, pady=10)
+
+    def create_orderFromSklad(self):
+        create_window = tk.Toplevel(self.root)
+        create_window.title("Добавить заказ на склад")
+
+        shop_label = ttk.Label(create_window, text="id магазина:")
+        shop_entry = ttk.Entry(create_window)
+
+        sklad_label = ttk.Label(create_window, text="id склада:")
+        sklad_entry = ttk.Entry(create_window)
+
+        product_label = ttk.Label(create_window, text="id продукта:")
+        product_entry = ttk.Entry(create_window)
+
+        quantity_label = ttk.Label(create_window, text="Количество:")
+        quantity_entry = ttk.Entry(create_window)
+
+        shop_label.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        shop_entry.grid(row=0, column=1, padx=10, pady=5)
+
+        sklad_label.grid(row=1, column=0, padx=10, pady=5, sticky=tk.W)
+        sklad_entry.grid(row=1, column=1, padx=10, pady=5)
+
+        product_label.grid(row=2, column=0, padx=10, pady=5, sticky=tk.W)
+        product_entry.grid(row=2, column=1, padx=10, pady=5)
+
+        quantity_label.grid(row=3, column=0, padx=10, pady=5, sticky=tk.W)
+        quantity_entry.grid(row=3, column=1, padx=10, pady=5)
+
+        def insert_data():
+            shop = shop_entry.get()
+            sklad = sklad_entry.get()
+            product = product_entry.get()
+            quantity = quantity_entry.get()
+
+            self.cursor.execute(
+                "INSERT INTO sklad.orderfromsklad (idShop, idSklad, idProduct, quantity, isDone) VALUES (%s, %s, %s, %s, %s)",
+                (shop, sklad, product, quantity, False)
+            )
+            self.conn.commit()
+
+            create_window.destroy()
+
+            self.load_sklad_data()
+
+        submit_button = ttk.Button(create_window, text="Добавить", command=insert_data)
+        submit_button.grid(row=4, column=0, columnspan=2, pady=10)
+
     def show_context_menu(self, event, treeview, tablename):
         item = self.get_selected_item(treeview)
         if item:
@@ -605,11 +791,26 @@ class WarehouseApp:
                                                                 tablename=tablename))
         sell_button.grid(row=1, column=0, columnspan=2, pady=10)
 
+    def order_is_done_window(self, order_id, quantity_to_sell, isDone, sklad_id, product_id, tablename):
+        done_window = tk.Toplevel(self.root)
+        done_window.title("Заказ выполнен")
+        self.tablename = tablename
+        print(tablename)
+
+        done_button = ttk.Button(done_window, text="Выполнено",
+                                 command=lambda: self.isDone_item(order_id, quantity_to_sell, isDone, sklad_id, product_id, tablename=tablename))
 
     def show_sale_context_menu(self, event, treeview, tablename):
         item_id = self.get_selected_item(treeview)
         if item_id:
             self.sale_context_menu.post(event.x_root, event.y_root)
+            self.selected_item = item_id
+            self.tablename = tablename
+
+    def show_order_is_done_context_menu(self, event, treeview, tablename):
+        item_id = self.get_selected_item(treeview)
+        if item_id:
+            self.order_is_done_context_menu.post(event.x_root, event.y_root)
             self.selected_item = item_id
             self.tablename = tablename
 
@@ -626,6 +827,27 @@ class WarehouseApp:
         elif tablename == "productsonsklad":
             self.cursor.execute("UPDATE sklad.productsonsklad SET quantity = quantity - %s WHERE idProduct = %s",
                                 (quantity_to_sell, product_id))
+            self.conn.commit()
+
+            self.load_productsOnSklad()
+
+    def isDone_item(self, order_id, quantity_to_sell, isDone, sklad_id, product_id, tablename):
+        print(f"Принято {quantity_to_sell} единиц продукта с ID {product_id}")
+
+        if tablename == "ordertosklad":
+            self.cursor.execute("UPDATE sklad.ordertosklad SET isDone = isDone - %s WHERE idOrder = %s",
+                                (isDone, order_id))
+            self.cursor.execute(
+                "UPDATE sklad.productsonsklad SET quantity = quantity - %s WHERE idProduct = %s AND idSklad = %s",
+                (quantity_to_sell, product_id, sklad_id))
+
+            self.conn.commit()
+
+            self.load_ordersToSklad()
+
+        elif tablename == "productsonsklad":
+            self.cursor.execute("UPDATE sklad.productsonsklad SET quantity = quantity - %s WHERE idProduct = %s",
+                                (quantity_to_sell, order_id))
             self.conn.commit()
 
             self.load_productsOnSklad()
@@ -720,7 +942,24 @@ class WarehouseApp:
         sale_context_menu.add_command(label="Продать", command=self.sell_selected_item_sklad)
         return sale_context_menu
 
+    def create_order_is_done_context_menu(self):
+        order_is_done_context_menu = tk.Menu(self.root, tearoff=0)
+
+        order_is_done_context_menu.add_command(label="Выполнено", command=self.order_is_done_item)
+        return order_is_done_context_menu
+
     def sell_selected_item(self):
+        if hasattr(self, 'selected_item') and hasattr(self, 'tablename'):
+            item_id = self.selected_item
+            tablename = self.tablename
+
+            if item_id is not None:
+                self.create_sale_window(item_id, tablename)
+
+                delattr(self, 'selected_item')
+                delattr(self, 'tablename')
+
+    def order_is_done_item_sklad_item(self):
         if hasattr(self, 'selected_item') and hasattr(self, 'tablename'):
             item_id = self.selected_item
             tablename = self.tablename
@@ -738,6 +977,17 @@ class WarehouseApp:
 
             if item_id is not None:
                 self.create_sale_window(item_id, tablename)
+
+                delattr(self, 'selected_item')
+                delattr(self, 'tablename')
+
+    def order_is_done_item(self):
+        if hasattr(self, 'selected_item') and hasattr(self, 'tablename'):
+            item_id = self.selected_item
+            tablename = self.tablename
+
+            if item_id is not None:
+                self.order_is_done_window(item_id, tablename)
 
                 delattr(self, 'selected_item')
                 delattr(self, 'tablename')
